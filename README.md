@@ -59,7 +59,7 @@ pytest -q
 1. 打开 http://localhost:3173 ，使用 `researcher` / `lab123456` 登录
 2. 在 Run 列表看到 seed 数据（含进行中与已完成）
 3. 点击「新建 Run」，填写 project/name、dataset sha、code commit，启动
-4. 在详情页记录指标、挂载产物，再 Complete（或 Abort）
+4. 在详情页记录指标、挂载产物，再 Complete（或 Abort）；Complete 会先向服务端取摘要并弹确认框（两枚指纹 + 度量/附件条数 + 当前版本），取消不写入任何事件，确认后才落 `RunCompleted`
 5. 打开「事件时间线」确认 version 递增的原始事件
 6. 打开「血缘」确认 code_commit、dataset 指纹、artifacts、metrics
 7. 健康检查：`GET http://localhost:8173/api/health`

@@ -71,6 +71,18 @@ class RunOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CompletionSummaryOut(BaseModel):
+    """完成前确认摘要：全部字段由服务端从投影计算，前端确认框只展示本摘要。"""
+
+    run_id: UUID
+    status: str
+    version: int
+    dataset_content_sha256: str
+    code_commit_sha: str
+    metrics_count: int
+    artifacts_count: int
+
+
 class EventOut(BaseModel):
     id: UUID
     aggregate_id: UUID

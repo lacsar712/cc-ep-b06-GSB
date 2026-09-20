@@ -57,6 +57,11 @@ export async function attachArtifact(id, body) {
   return data
 }
 
+export async function getCompletionSummary(id) {
+  const { data } = await api.get(`/runs/${id}/completion-summary`)
+  return data
+}
+
 export async function completeRun(id, body) {
   const { data } = await api.post(`/runs/${id}/complete`, body)
   return data

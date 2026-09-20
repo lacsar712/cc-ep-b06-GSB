@@ -97,13 +97,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import { useDialog, useMessage } from 'naive-ui'
 import {
   abortRun,
   attachArtifact,
   completeRun,
+  getCompletionSummary,
   getRun,
   recordMetric,
 } from '../api/client'
@@ -112,6 +113,7 @@ import { useAuthStore } from '../stores/auth'
 const route = useRoute()
 const auth = useAuthStore()
 const message = useMessage()
+const dialog = useDialog()
 const run = ref(null)
 const busy = ref(false)
 const completeSummary = ref('')
@@ -197,15 +199,52 @@ function doArtifact() {
   )
 }
 
-function doComplete() {
+function digestRow(label, value, mono = false) {
+  return h('div', { style: 'margin-bottom: 10px' }, [
+    h('div', { class: 'muted', style: 'font-size: 12px' }, label),
+    h('div', mono ? { class: 'mono' } : null, String(value)),
+  ])
+}
+
+// 确认框只渲染服务端摘要：两枚指纹 + 度量/附件条数 + 当前版本，数字全部来自接口
+function renderDigest(digest) {
+  return h('div', null, [
+    digestRow('dataset_content_sha256', digest.dataset_content_sha256, true),
+    digestRow('code_commit_sha', digest.code_commit_sha, true),
+    digestRow('已记度量条数', digest.metrics_count),
+    digestRow('已挂附件条数', digest.artifacts_count),
+    digestRow('当前版本', `v${digest.version}`),
+  ])
+}
+
+async function doComplete() {
   if (!completeSummary.value.trim()) {
     message.warning('请填写完成摘要')
     return
   }
+  // 点完成后先向服务端取摘要；取不到则不弹确认框、不发命令
+  let digest
+  try {
+    digest = await getCompletionSummary(run.value.id)
+  } catch (e) {
+    message.error(e.message || '获取完成摘要失败')
+    return
+  }
+  dialog.warning({
+    title: '确认完成？请核对服务端摘要',
+    content: () => renderDigest(digest),
+    positiveText: '确认完成',
+    negativeText: '取消',
+    // 取消：不发任何命令，Run 保持进行中；确认：才提交 CompleteRun
+    onPositiveClick: () => submitComplete(digest),
+  })
+}
+
+function submitComplete(digest) {
   return withBusy(() =>
     completeRun(run.value.id, {
       result_summary: completeSummary.value,
-      expected_version: run.value.version,
+      expected_version: digest.version,
     }),
   )
 }
