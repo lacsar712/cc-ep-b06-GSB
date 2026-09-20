@@ -93,6 +93,36 @@
       </div>
     </div>
     <div v-else class="card muted">审计员只读：可查看事件与血缘，不可发送命令。</div>
+
+    <n-modal
+      v-model:show="confirmVisible"
+      preset="card"
+      title="确认完成 Run"
+      style="max-width: 640px"
+      :mask-closable="false"
+    >
+      <n-descriptions v-if="completionSummary" :column="1" bordered size="small">
+        <n-descriptions-item label="dataset_content_sha256">
+          <span class="mono">{{ completionSummary.dataset_content_sha256 }}</span>
+        </n-descriptions-item>
+        <n-descriptions-item label="code_commit_sha">
+          <span class="mono">{{ completionSummary.code_commit_sha }}</span>
+        </n-descriptions-item>
+        <n-descriptions-item label="已记度量条数">
+          {{ completionSummary.metrics_count }}
+        </n-descriptions-item>
+        <n-descriptions-item label="已挂附件条数">
+          {{ completionSummary.artifacts_count }}
+        </n-descriptions-item>
+        <n-descriptions-item label="当前版本">v{{ completionSummary.version }}</n-descriptions-item>
+      </n-descriptions>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px">
+          <n-button :disabled="busy" @click="cancelComplete">取消</n-button>
+          <n-button type="success" :loading="busy" @click="confirmComplete">确认完成</n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -104,6 +134,7 @@ import {
   abortRun,
   attachArtifact,
   completeRun,
+  getCompletionSummary,
   getRun,
   recordMetric,
 } from '../api/client'
@@ -116,6 +147,8 @@ const run = ref(null)
 const busy = ref(false)
 const completeSummary = ref('')
 const abortReason = ref('')
+const confirmVisible = ref(false)
+const completionSummary = ref(null)
 
 const metric = reactive({ name: 'loss', value: 0.5, step: 1 })
 const artifact = reactive({
@@ -197,17 +230,41 @@ function doArtifact() {
   )
 }
 
-function doComplete() {
+async function doComplete() {
   if (!completeSummary.value.trim()) {
     message.warning('请填写完成摘要')
     return
   }
-  return withBusy(() =>
-    completeRun(run.value.id, {
+  busy.value = true
+  try {
+    const summary = await getCompletionSummary(run.value.id)
+    if (summary.status !== 'running') {
+      message.warning('Run 已不在进行中，请刷新后重试')
+      await load()
+      return
+    }
+    completionSummary.value = summary
+    confirmVisible.value = true
+  } catch (e) {
+    message.error(e.message || '获取完成摘要失败')
+  } finally {
+    busy.value = false
+  }
+}
+
+function cancelComplete() {
+  confirmVisible.value = false
+  completionSummary.value = null
+}
+
+function confirmComplete() {
+  return withBusy(async () => {
+    await completeRun(run.value.id, {
       result_summary: completeSummary.value,
-      expected_version: run.value.version,
-    }),
-  )
+      expected_version: completionSummary.value.version,
+    })
+    cancelComplete()
+  })
 }
 
 function doAbort() {

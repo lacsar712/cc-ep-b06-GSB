@@ -21,6 +21,7 @@ from app.schemas import (
     AbortRunCommand,
     AttachArtifactCommand,
     CompleteRunCommand,
+    CompletionSummaryOut,
     EventOut,
     LineageOut,
     LoginRequest,
@@ -101,6 +102,26 @@ def get_run(
     if not proj:
         raise HTTPException(status_code=404, detail="Run 不存在")
     return proj
+
+
+@router.get("/runs/{run_id}/completion-summary", response_model=CompletionSummaryOut)
+def get_completion_summary(
+    run_id: UUID,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(get_current_user),
+):
+    proj = db.get(RunProjection, run_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Run 不存在")
+    return CompletionSummaryOut(
+        run_id=proj.id,
+        status=proj.status,
+        version=proj.version,
+        dataset_content_sha256=proj.dataset_content_sha256,
+        code_commit_sha=proj.code_commit_sha,
+        metrics_count=len(proj.metrics_json or []),
+        artifacts_count=len(proj.artifacts_json or []),
+    )
 
 
 @router.post("/runs/{run_id}/metrics", response_model=RunOut)

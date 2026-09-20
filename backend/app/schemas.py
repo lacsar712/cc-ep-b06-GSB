@@ -83,6 +83,16 @@ class EventOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CompletionSummaryOut(BaseModel):
+    run_id: UUID
+    status: str
+    version: int
+    dataset_content_sha256: str
+    code_commit_sha: str
+    metrics_count: int
+    artifacts_count: int
+
+
 class LineageOut(BaseModel):
     run_id: UUID
     project: str
